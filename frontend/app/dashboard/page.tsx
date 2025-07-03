@@ -20,6 +20,11 @@ interface JournalEntry {
   wordCount: number
 }
 
+interface ApiResponse {
+  entries?: JournalEntry[]
+  error?: string
+}
+
 const moodEmojis: { [key: string]: string } = {
   happy: "😊",
   sad: "😢",
@@ -64,7 +69,7 @@ export default function DashboardPage() {
       })
 
       if (response.ok) {
-        const data = await response.json()
+        const data: ApiResponse = await response.json()
         setEntries(data.entries || [])
       } else if (response.status === 401) {
         localStorage.removeItem("token")
