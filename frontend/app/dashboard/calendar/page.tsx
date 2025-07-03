@@ -80,7 +80,7 @@ export default function CalendarPage() {
 
       console.log(`Fetching calendar data for ${year}/${month}`)
 
-      const response = await fetch(`http://localhost:5000/api/entries/calendar/${year}/${month}`, {
+      const response = await fetch(`https://daily-journal-production-3e63.up.railway.app/api/entries/calendar/${year}/${month}`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",

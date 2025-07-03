@@ -46,7 +46,7 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.error("Login error:", err)
-      setError("Network error. Please make sure the backend server is running on http://localhost:5000")
+      setError("Network error. Please make sure the backend server is running on https://daily-journal-production-3e63.up.railway.app")
     } finally {
       setLoading(false)
     }

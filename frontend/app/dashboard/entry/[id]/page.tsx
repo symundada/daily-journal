@@ -61,7 +61,7 @@ export default function EntryDetailPage() {
   const fetchEntry = async () => {
     try {
       const token = localStorage.getItem("token")
-      const response = await fetch(`http://localhost:5000/api/entries/${params.id}`, {
+      const response = await fetch(`https://daily-journal-production-3e63.up.railway.app/api/entries/${params.id}`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -92,7 +92,7 @@ export default function EntryDetailPage() {
     setDeleting(true)
     try {
       const token = localStorage.getItem("token")
-      const response = await fetch(`http://localhost:5000/api/entries/${params.id}`, {
+      const response = await fetch(`https://daily-journal-production-3e63.up.railway.app/api/entries/${params.id}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
