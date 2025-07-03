@@ -26,7 +26,7 @@ export default function LoginPage() {
 
     try {
       // Connect to your backend server
-      const response = await fetch("http://localhost:5000/api/auth/login", {
+      const response = await fetch("https://daily-journal-production-3e63.up.railway.app/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -1,7 +1,7 @@
 // API configuration for connecting to your backend
 const API_BASE_URL =
   process.env.NODE_ENV === "production"
-    ? "https://your-backend-url.railway.app/api" // We'll update this after backend deployment
+    ? "https://daily-journal-production-3e63.up.railway.app/" // We'll update this after backend deployment
     : "http://localhost:5000/api"
 
 export const API_ENDPOINTS = {

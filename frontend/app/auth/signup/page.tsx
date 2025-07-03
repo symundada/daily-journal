@@ -40,7 +40,7 @@ export default function SignupPage() {
 
     try {
       // Connect to your backend server
-      const response = await fetch("http://localhost:5000/api/auth/register", {
+      const response = await fetch("https://daily-journal-production-3e63.up.railway.app/api/auth/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
