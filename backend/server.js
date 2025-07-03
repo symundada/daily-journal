@@ -150,7 +150,7 @@ app.use("*", (req, res) => {
   })
 })
 
-// MongoDB Atlas connection with better error handling
+// MongoDB Atlas connection with FIXED options
 const connectDB = async () => {
   try {
     // Check if MONGODB_URI exists
@@ -165,14 +165,18 @@ const connectDB = async () => {
 
     console.log("🔄 Attempting to connect to MongoDB Atlas...")
 
+    // Updated connection options - removed deprecated options
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+      // Remove deprecated options
+      // bufferMaxEntries: 0,  // REMOVED - This is deprecated
+      // bufferCommands: false, // REMOVED - This is deprecated
+      // useNewUrlParser: true, // REMOVED - Default in Mongoose 6+
+      // useUnifiedTopology: true, // REMOVED - Default in Mongoose 6+
+
+      // Keep only supported options
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
-      bufferMaxEntries: 0,
-      bufferCommands: false,
     })
 
     console.log(`✅ Connected to MongoDB Atlas: ${conn.connection.host}`)
