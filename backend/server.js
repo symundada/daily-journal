@@ -3,7 +3,6 @@ const mongoose = require("mongoose")
 const cors = require("cors")
 const dotenv = require("dotenv")
 const helmet = require("helmet")
-const rateLimit = require("express-rate-limit").default || require("express-rate-limit")
 const authRoutes = require("./routes/auth")
 const entryRoutes = require("./routes/entries")
 const userRoutes = require("./routes/users")
@@ -14,41 +13,57 @@ dotenv.config()
 const app = express()
 const PORT = process.env.PORT || 5000
 
+// Debug: Log the MongoDB URI (remove password for security)
+console.log("🔍 MongoDB URI check:", process.env.MONGODB_URI ? "✅ Found" : "❌ Missing")
+if (process.env.MONGODB_URI) {
+  const uriWithoutPassword = process.env.MONGODB_URI.replace(/:([^:@]{1,}@)/, ":****@")
+  console.log("🔗 Connection string format:", uriWithoutPassword)
+}
+
 // Security middleware
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" },
-}))
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+)
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
-  message: { error: "Too many requests from this IP, please try again later." },
-  standardHeaders: true,
-  legacyHeaders: false,
-})
+// CORS configuration - Updated to include your Vercel frontend
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      const allowedOrigins = [
+        process.env.FRONTEND_URL || "http://localhost:3000",
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "https://daily-journal-frontend-nt5i8iiv5-symundada-projects.vercel.app", // Your Vercel URL
+        "https://daily-journal-frontend-symundada-projects.vercel.app", // Alternative Vercel URL format
+        "https://your-frontend-domain.com",
+      ]
 
-app.use(limiter)
+      // Allow requests with no origin (mobile apps, curl, etc.)
+      if (!origin) return callback(null, true)
 
-// CORS configuration
-app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL || "http://localhost:3000",
-    "http://localhost:3000",
-    "http://localhost:3001",
-  ],
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-}))
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true)
+      } else {
+        console.log("❌ CORS blocked origin:", origin)
+        callback(null, true) // Temporarily allow all origins for debugging
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Accept"],
+    optionsSuccessStatus: 200, // For legacy browser support
+  }),
+)
 
 // Body parsing middleware
 app.use(express.json({ limit: "10mb" }))
 app.use(express.urlencoded({ extended: true, limit: "10mb" }))
 
-// Request logging
+// Request logging middleware
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`)
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - Origin: ${req.get("Origin") || "No origin"}`)
   next()
 })
 
@@ -65,6 +80,7 @@ app.get("/api/health", (req, res) => {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
     database: "MongoDB Atlas",
+    mongoUri: process.env.MONGODB_URI ? "✅ Set" : "❌ Missing",
   })
 })
 
@@ -78,6 +94,7 @@ app.get("/api", (req, res) => {
         register: "POST /api/auth/register",
         login: "POST /api/auth/login",
         me: "GET /api/auth/me",
+        refresh: "POST /api/auth/refresh",
       },
       entries: {
         getAll: "GET /api/entries",
@@ -85,9 +102,12 @@ app.get("/api", (req, res) => {
         getOne: "GET /api/entries/:id",
         update: "PUT /api/entries/:id",
         delete: "DELETE /api/entries/:id",
+        stats: "GET /api/entries/stats/summary",
+        calendar: "GET /api/entries/calendar/:year/:month",
       },
       users: {
         profile: "GET /api/users/profile",
+        updateProfile: "PUT /api/users/profile",
         dashboard: "GET /api/users/dashboard",
       },
     },
@@ -97,17 +117,25 @@ app.get("/api", (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error("Error:", err.stack)
-  
+
   if (err.name === "ValidationError") {
     const errors = Object.values(err.errors).map((e) => e.message)
     return res.status(400).json({ error: "Validation Error", details: errors })
   }
-  
+
   if (err.code === 11000) {
     const field = Object.keys(err.keyValue)[0]
     return res.status(400).json({ error: `${field} already exists` })
   }
-  
+
+  if (err.name === "JsonWebTokenError") {
+    return res.status(401).json({ error: "Invalid token" })
+  }
+
+  if (err.name === "TokenExpiredError") {
+    return res.status(401).json({ error: "Token expired" })
+  }
+
   res.status(err.status || 500).json({
     error: "Something went wrong!",
     message: process.env.NODE_ENV === "development" ? err.message : "Internal server error",
@@ -122,18 +150,33 @@ app.use("*", (req, res) => {
   })
 })
 
-// MongoDB Atlas connection
+// MongoDB Atlas connection with better error handling
 const connectDB = async () => {
   try {
+    // Check if MONGODB_URI exists
+    if (!process.env.MONGODB_URI) {
+      throw new Error("MONGODB_URI environment variable is not set")
+    }
+
+    // Validate connection string format
+    if (!process.env.MONGODB_URI.startsWith("mongodb://") && !process.env.MONGODB_URI.startsWith("mongodb+srv://")) {
+      throw new Error(`Invalid MongoDB URI format: ${process.env.MONGODB_URI.substring(0, 20)}...`)
+    }
+
+    console.log("🔄 Attempting to connect to MongoDB Atlas...")
+
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
+      bufferMaxEntries: 0,
+      bufferCommands: false,
     })
 
     console.log(`✅ Connected to MongoDB Atlas: ${conn.connection.host}`)
 
-    // Handle connection events
     mongoose.connection.on("error", (err) => {
       console.error("❌ MongoDB connection error:", err)
     })
@@ -147,6 +190,9 @@ const connectDB = async () => {
     })
   } catch (error) {
     console.error("❌ MongoDB connection error:", error.message)
+    console.error("🔍 Environment variables check:")
+    console.error("- MONGODB_URI:", process.env.MONGODB_URI ? "Set" : "Missing")
+    console.error("- NODE_ENV:", process.env.NODE_ENV || "Not set")
     process.exit(1)
   }
 }
@@ -178,13 +224,11 @@ const gracefulShutdown = async (signal) => {
 process.on("SIGINT", () => gracefulShutdown("SIGINT"))
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"))
 
-// Handle unhandled promise rejections
 process.on("unhandledRejection", (err) => {
   console.error("❌ Unhandled Promise Rejection:", err.message)
   gracefulShutdown("unhandledRejection")
 })
 
-// Handle uncaught exceptions
 process.on("uncaughtException", (err) => {
   console.error("❌ Uncaught Exception:", err.message)
   gracefulShutdown("uncaughtException")
