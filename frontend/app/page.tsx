@@ -6,9 +6,9 @@ import { BookOpen, Calendar, Heart, Search } from 'lucide-react'
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto px-4 py-16">
-        <div className="text-center mb-16">
-          <div className="flex justify-center mb-6">
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center mb-12">
+          <div className="flex justify-center mb-4">
             <div className="p-4 bg-indigo-600 rounded-full">
               <BookOpen className="h-12 w-12 text-white" />
             </div>
@@ -19,7 +19,7 @@ export default function HomePage() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8 mb-16">
+        <div className="grid md:grid-cols-3 gap-8 mb-12">
           <Card className="text-center">
             <CardHeader>
               <div className="mx-auto p-3 bg-green-100 rounded-full w-fit">
